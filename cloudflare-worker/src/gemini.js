@@ -163,3 +163,164 @@ export async function classifyBatch(messages, { apiKey, model, fetchImpl = fetch
   }
   throw lastError;
 }
+
+// ---------------------------------------------------------------------------
+// Approfondimento di un singolo elemento ("Approfondisci" nella dashboard)
+// ---------------------------------------------------------------------------
+
+const EXPLAIN_CHAT = [
+  'Spieghi a uno studente un elemento estratto dal suo gruppo WhatsApp universitario.',
+  '',
+  'Usa ESCLUSIVAMENTE i messaggi del gruppo che ti vengono forniti: sono la',
+  'discussione attorno al messaggio, ed e\' li\' che sta la risposta se esiste.',
+  'Non attingere a conoscenze generali e non fare supposizioni.',
+  '',
+  '- Rispondi in italiano, al massimo 120 parole, senza preamboli.',
+  '- Ricostruisci il senso: chi ha chiesto cosa, cosa e\' stato risposto, cosa resta aperto.',
+  '- Se i messaggi NON bastano a chiarire, rispondi solo con:',
+  '  "I messaggi del gruppo non bastano per approfondire." seguito da una riga',
+  '  che dice quale informazione manca.',
+].join('\n');
+
+const EXPLAIN_WEB = [
+  'Spieghi a uno studente un elemento estratto dal suo gruppo WhatsApp universitario.',
+  '',
+  'Procedi in questo ordine:',
+  '1. Parti dai messaggi del gruppo forniti: sono la fonte primaria.',
+  '2. Usa la ricerca web per completare cio\' che i messaggi non dicono e per',
+  '   VERIFICARE quanto affermato nel gruppo.',
+  '3. Se la ricerca contraddice quanto scritto nel gruppo, dillo apertamente,',
+  '   iniziando la frase con "Attenzione:" e indicando la fonte.',
+  '',
+  '- Rispondi in italiano, al massimo 150 parole, senza preamboli.',
+  '- Distingui sempre cio\' che viene dai messaggi da cio\' che viene dal web.',
+  '- Se nemmeno la ricerca chiarisce, dillo invece di inventare.',
+].join('\n');
+
+/** Testo utente per l'approfondimento: elemento piu' discussione attorno. */
+export function buildExplainPrompt(item, context = []) {
+  const quando = new Date(item.original_ts).toLocaleString('it-IT', {
+    timeZone: 'Europe/Rome',
+  });
+  const righe = (context || []).map((m) => {
+    const marker = m.self ? '>>' : '  ';
+    return `${marker} [${m.from || 'anonimo'}] ${m.text}`;
+  });
+
+  return [
+    `Gruppo: ${item.chat_name || item.chat_id}`,
+    `Categoria assegnata: ${item.category}`,
+    `Sintesi nel digest: ${item.summary}`,
+    `Messaggio originale (${item.sender_name || 'anonimo'}, ${quando}):`,
+    item.original_text || '(testo non conservato)',
+    '',
+    righe.length
+      ? `Discussione attorno a quel messaggio (>> indica il messaggio in questione):\n${righe.join('\n')}`
+      : 'Nessun messaggio di contorno disponibile per questo elemento.',
+  ].join('\n');
+}
+
+/**
+ * Riassume un errore dell'API in una riga leggibile.
+ *
+ * I 429 di Gemini hanno un messaggio lunghissimo e generico, mentre l'unica
+ * informazione che serve — quale limite e' stato superato — sta in fondo,
+ * dentro `details`. Senza questa estrazione si finisce a leggere tre righe di
+ * link alla documentazione senza capire cosa e' successo.
+ */
+export function describeApiError(raw) {
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return String(raw).replace(/\s+/g, ' ').slice(0, 200);
+  }
+
+  const error = parsed?.error || {};
+  const pezzi = [error.status || '', String(error.message || '').slice(0, 120)];
+
+  for (const d of error.details || []) {
+    for (const v of d.violations || []) {
+      pezzi.push(`limite: ${v.quotaId || v.quotaMetric || 'sconosciuto'}${v.quotaValue ? ` (${v.quotaValue})` : ''}`);
+    }
+    if (d.retryDelay) pezzi.push(`riprovare fra ${d.retryDelay}`);
+  }
+  return pezzi.filter(Boolean).join(' — ');
+}
+
+/** Estrae le fonti citate dalla risposta, qualunque forma abbia il payload. */
+function extractSources(payload) {
+  const candidate = payload?.candidates?.[0];
+  const chunks = candidate?.groundingMetadata?.groundingChunks || [];
+  const fromChunks = chunks
+    .map((c) => c?.web)
+    .filter(Boolean)
+    .map((w) => ({ title: w.title || w.uri, url: w.uri }));
+
+  const annotations = (candidate?.content?.parts || [])
+    .flatMap((p) => p.annotations || [])
+    .map((a) => a.url_citation || a)
+    .filter((a) => a && a.url)
+    .map((a) => ({ title: a.title || a.url, url: a.url }));
+
+  const tutte = [...fromChunks, ...annotations];
+  const viste = new Set();
+  return tutte.filter((s) => (viste.has(s.url) ? false : viste.add(s.url)));
+}
+
+/**
+ * Chiede a Gemini di approfondire un elemento.
+ *
+ * Con `useWeb` attivo aggiunge la ricerca Google come strumento: il formato del
+ * campo `tools` e' cambiato fra le versioni dell'API, quindi si prova quello
+ * attuale e, se viene rifiutato, si ripiega sul precedente.
+ *
+ * @returns {Promise<{text: string, sources: Array<{title: string, url: string}>}>}
+ */
+export async function explainItem(item, { apiKey, model, useWeb = false, fetchImpl = fetch }) {
+  if (!apiKey) throw new GeminiError('GEMINI_API_KEY non configurata');
+
+  const base = {
+    systemInstruction: { parts: [{ text: useWeb ? EXPLAIN_WEB : EXPLAIN_CHAT }] },
+    contents: [{ role: 'user', parts: [{ text: buildExplainPrompt(item, item.context) }] }],
+    generationConfig: { temperature: 0.2 },
+  };
+
+  // Il nome del campo per la ricerca Google cambia fra le versioni dell'API:
+  // si provano le forme note in ordine, tenendo traccia di tutti gli errori.
+  const varianti = useWeb
+    ? [
+        { ...base, tools: [{ googleSearch: {} }] },
+        { ...base, tools: [{ google_search: {} }] },
+        { ...base, tools: [{ type: 'google_search' }] },
+      ]
+    : [base];
+
+  const errori = [];
+  for (const body of varianti) {
+    const response = await fetchImpl(`${API_ROOT}/${model}:generateContent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '');
+      errori.push(`${response.status}: ${describeApiError(detail)}`);
+      continue;
+    }
+
+    const payload = await response.json();
+    const text = (payload?.candidates?.[0]?.content?.parts || [])
+      .map((p) => p.text || '')
+      .join('')
+      .trim();
+    if (!text) {
+      errori.push('risposta vuota');
+      continue;
+    }
+    return { text, sources: extractSources(payload) };
+  }
+
+  throw new GeminiError(`Gemini ha rifiutato tutte le varianti — ${errori.join(' || ')}`);
+}

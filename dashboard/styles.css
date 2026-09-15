@@ -212,3 +212,61 @@ select {
   color: var(--muted);
   font-size: 13px;
 }
+
+.item-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+button.small {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.explain {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-left: 2px solid var(--accent);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--bg);
+  font-size: 14px;
+}
+
+.explain-label {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.explain-text {
+  margin: 0;
+}
+
+.explain-loading {
+  margin: 0;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.explain-error {
+  margin: 0;
+  color: var(--alta);
+}
+
+.explain-sources {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+
+.explain-sources a {
+  color: var(--accent);
+}

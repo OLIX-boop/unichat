@@ -43,3 +43,7 @@ ALLOWED_ORIGIN = "https://unichat.andreaolimpio.workers.dev"
 #   BRIDGE_API_KEY    chiave condivisa col bridge locale
 #   ADMIN_TOKEN       (facoltativo) abilita il trigger manuale GET /run
 #   DASHBOARD_TOKEN   (facoltativo) protegge le API di lettura
+# Verifica online negli approfondimenti della dashboard. Richiede il piano a
+# pagamento di Gemini (la ricerca Google costa circa 35 $ ogni 1000 richieste):
+# sul piano gratuito ogni chiamata torna 429, quindi il pulsante resta nascosto.
+WEB_SEARCH_ENABLED = "false"

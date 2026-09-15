@@ -6,6 +6,34 @@
 import { classifyBatch } from './gemini.js';
 import { URGENCIES, categoryBySlug, isDiscarded } from './config/categories.js';
 
+/** Quanti messaggi adiacenti conservare attorno a un elemento rilevante. */
+export const CONTEXT_BEFORE = 8;
+export const CONTEXT_AFTER = 4;
+
+/**
+ * Ritaglia la discussione attorno a un messaggio, restando nella sua chat.
+ *
+ * Serve ad "Approfondisci": una sintesi come "su WeBeep c'e' la sezione corsi"
+ * e' incomprensibile da sola, ma diventa chiara con la domanda che l'ha
+ * provocata. Si conservano solo i messaggi vicini, non l'intera cronologia.
+ */
+export function buildContext(message, allMessages) {
+  const sameChat = allMessages
+    .filter((m) => m.chat_id === message.chat_id)
+    .sort((a, b) => a.timestamp - b.timestamp);
+  const index = sameChat.findIndex((m) => m.id === message.id);
+  if (index === -1) return [];
+
+  return sameChat
+    .slice(Math.max(0, index - CONTEXT_BEFORE), index + CONTEXT_AFTER + 1)
+    .map((m) => ({
+      from: m.sender_name || m.sender_id || '',
+      text: String(m.text || '').slice(0, 500),
+      ts: m.timestamp,
+      self: m.id === message.id,
+    }));
+}
+
 /** Divide un array in blocchi di dimensione massima `size`. */
 export function chunk(items, size) {
   const out = [];

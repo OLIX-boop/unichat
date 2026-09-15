@@ -84,8 +84,8 @@ export async function insertItems(db, runId, items, { storeOriginalText = true }
   const stmt = db.prepare(
     `INSERT OR IGNORE INTO items
        (message_id, chat_id, chat_name, category, summary, urgency, sender_id,
-        sender_name, original_text, original_ts, processed_ts, run_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        sender_name, original_text, original_ts, processed_ts, run_id, context_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const results = await db.batch(
     items.map((it) =>
@@ -102,6 +102,7 @@ export async function insertItems(db, runId, items, { storeOriginalText = true }
         it.original_ts,
         now,
         runId,
+        it.context && it.context.length ? JSON.stringify(it.context) : null,
       ),
     ),
   );
@@ -209,4 +210,67 @@ export async function filterNewItems(db, items) {
     .all();
   const known = new Set((rows.results || []).map((r) => r.message_id));
   return items.filter((it) => !known.has(it.message_id));
+}
+
+/** Elemento singolo con il suo contesto conversazionale, per "Approfondisci". */
+export async function getItem(db, id) {
+  const row = await db
+    .prepare(
+      `SELECT id, message_id, chat_id, chat_name, category, summary, urgency,
+              sender_name, original_text, original_ts, context_json
+         FROM items WHERE id = ?`,
+    )
+    .bind(Number(id))
+    .first();
+  if (!row) return null;
+
+  let context = [];
+  if (row.context_json) {
+    try {
+      context = JSON.parse(row.context_json);
+    } catch {
+      context = [];
+    }
+  }
+  return { ...row, context };
+}
+
+/** Approfondimento gia' calcolato per (elemento, modalita'), se esiste. */
+export async function getExplanation(db, itemId, mode) {
+  const row = await db
+    .prepare('SELECT text, sources_json, created_ts FROM explanations WHERE item_id = ? AND mode = ?')
+    .bind(Number(itemId), mode)
+    .first();
+  if (!row) return null;
+
+  let sources = [];
+  if (row.sources_json) {
+    try {
+      sources = JSON.parse(row.sources_json);
+    } catch {
+      sources = [];
+    }
+  }
+  return { text: row.text, sources, created_ts: row.created_ts, cached: true };
+}
+
+/** Salva (o sostituisce) l'approfondimento, cosi' non si ripaga la stessa domanda. */
+export async function saveExplanation(db, itemId, mode, text, sources) {
+  await db
+    .prepare(
+      `INSERT INTO explanations (item_id, mode, text, sources_json, created_ts)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(item_id, mode) DO UPDATE SET
+         text = excluded.text,
+         sources_json = excluded.sources_json,
+         created_ts = excluded.created_ts`,
+    )
+    .bind(
+      Number(itemId),
+      mode,
+      text,
+      sources && sources.length ? JSON.stringify(sources) : null,
+      Date.now(),
+    )
+    .run();
 }

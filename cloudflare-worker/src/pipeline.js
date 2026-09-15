@@ -13,7 +13,7 @@
  */
 
 import { createBridgeClient } from './bridge.js';
-import { classifyMessages } from './classify.js';
+import { buildContext, classifyMessages } from './classify.js';
 import { buildDigest, countByCategory } from './digest.js';
 import {
   filterNewItems,
@@ -40,6 +40,11 @@ export function readConfig(env) {
     storeOriginalText: String(env.STORE_ORIGINAL_TEXT ?? 'true') !== 'false',
     firstRunLookbackHours: num(env.FIRST_RUN_LOOKBACK_HOURS, 24),
     dashboardUrl: env.DASHBOARD_URL || '',
+    // La ricerca Google come strumento di Gemini e' riservata al piano a
+    // pagamento: sul gratuito ogni richiesta torna 429. Resta spenta finche'
+    // non si attiva la fatturazione, cosi' la dashboard non mostra un pulsante
+    // destinato a fallire.
+    webSearchEnabled: String(env.WEB_SEARCH_ENABLED ?? 'false') === 'true',
   };
 }
 
@@ -64,6 +69,15 @@ export async function classifyAndStore(env, messages, { now, fetchImpl, runId })
   // Gli elementi gia' presenti in D1 non vanno ne' riscritti ne' ri-annunciati:
   // e' cio' che rende innocuo un tentativo ripetuto dopo un errore.
   const fresh = await filterNewItems(env.DB, items);
+
+  // La finestra di conversazione va ritagliata ora: dopo questo run i messaggi
+  // non rilevanti vengono persi, e senza contesto "Approfondisci" non ha nulla
+  // su cui ragionare.
+  const byId = new Map(messages.map((m) => [m.id, m]));
+  for (const item of fresh) {
+    const original = byId.get(item.message_id);
+    item.context = original ? buildContext(original, messages) : [];
+  }
 
   let stored = 0;
   let digest = null;

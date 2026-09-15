@@ -43,7 +43,7 @@ Cron (ogni ora)
 | `src/digest.js` | Composizione del messaggio WhatsApp |
 | `src/db.js` | Tutte le query D1 |
 | `src/api.js` | `/api/items`, `/api/categories`, `/api/stats`, `/api/runs` |
-| `migrations/0001_init.sql` | Schema D1 |
+| `migrations/` | Schema D1: `0001` tabelle base, `0002` contesto e approfondimenti |
 
 ## Setup passo-passo
 
@@ -88,7 +88,7 @@ Verifica:
 npx wrangler d1 execute unichat --remote --command "SELECT name FROM sqlite_master WHERE type='table'"
 ```
 
-Devi vedere `items`, `runs`, `state`.
+Devi vedere `items`, `runs`, `state` ed `explanations`.
 
 ### 4. Variabili e segreti
 
@@ -117,6 +117,7 @@ Per lo sviluppo locale usa invece `.dev.vars` (copiato da `.dev.vars.example`).
 | `FIRST_RUN_LOOKBACK_HOURS` | `[vars]` | no | `24` |
 | `DASHBOARD_URL` | `[vars]` | no | vuoto |
 | `ALLOWED_ORIGIN` | `[vars]` | no | `*` |
+| `WEB_SEARCH_ENABLED` | `[vars]` | no | `false` |
 | `GEMINI_API_KEY` | secret | **si** | — |
 | `BRIDGE_API_KEY` | secret | **si** | — |
 | `ADMIN_TOKEN` | secret | no | disattiva `/run` |
@@ -179,12 +180,36 @@ npx wrangler tail
 | `GET /api/categories` | — | Tassonomia corrente |
 | `GET /api/stats` | — | Totali, conteggi per categoria, ultimo run |
 | `GET /api/runs` | `limit` | Ultime esecuzioni del cron |
+| `POST /api/explain` | `item_id`, `mode` (`chat`|`web`), `refresh` | Approfondisce un elemento; risposta in cache per (elemento, modalita) |
 | `GET /health` | — | Stato del Worker |
 | `GET /run` | `token` | Esecuzione manuale della pipeline in modalita' pull |
 | `POST /ingest` | header `X-Bridge-Key` | Modalita' push: riceve i messaggi, risponde col digest |
 
 Se `DASHBOARD_TOKEN` e' impostato, ogni chiamata `/api/*` deve includere
 l'header `X-Dashboard-Token` (o `?token=`).
+
+## Approfondimenti
+
+Ogni elemento della dashboard ha un pulsante **Approfondisci**: il Worker
+ripassa a Gemini la sintesi, il messaggio originale e la **finestra di
+conversazione** salvata al momento della classificazione (8 messaggi prima e 4
+dopo, stessa chat), e ne ottiene una spiegazione di poche righe. Se quei
+messaggi non bastano, il modello ha istruzione di dirlo invece di inventare.
+
+Il contesto e' l'unico frammento di "rumore" che viene conservato, ed e' legato
+all'elemento: sparisce quando sparisce lui. Gli elementi raccolti prima della
+migrazione `0002` non ce l'hanno, e la dashboard lo dichiara.
+
+C'e' anche una modalita' **web**, che aggiunge la ricerca Google per completare
+e verificare quanto detto nel gruppo (segnalando le contraddizioni con le
+fonti). E' **spenta** per impostazione predefinita: la ricerca come strumento di
+Gemini richiede il piano a pagamento — sul gratuito ogni richiesta torna `429`
+— e costa circa 35 $ ogni 1000 interrogazioni. Per attivarla: fatturazione su
+Google AI Studio e `WEB_SEARCH_ENABLED = "true"` in `wrangler.toml`.
+
+Le risposte vengono messe in cache in D1 per coppia (elemento, modalita'):
+riaprire la dashboard non ripaga la stessa domanda. `refresh: true` nel corpo
+della richiesta forza il ricalcolo.
 
 ## Modificare la tassonomia
 
@@ -201,7 +226,7 @@ delle sezioni del digest e filtri della dashboard derivano da li'.
 npm test
 ```
 
-37 test: logica pura (composizione del digest, validazione dei verdetti, scarto
+50 test: logica pura (composizione del digest, validazione dei verdetti, scarto
 del rumore) e flusso completo in entrambe le modalita', con bridge, Gemini e D1
 finti. Nessuna chiamata di rete, nessun consumo di quota.
 

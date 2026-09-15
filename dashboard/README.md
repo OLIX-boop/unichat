@@ -20,6 +20,12 @@ Worker. Tre file, nessun framework, nessun build step.
 - Ordinamento crescente/decrescente per data
 - Paginazione "Carica altri" a blocchi di 50
 - Messaggio originale a scomparsa (se `STORE_ORIGINAL_TEXT` e' attivo nel Worker)
+- **Approfondisci**: Gemini rilegge la discussione salvata attorno al messaggio e
+  spiega in poche righe cosa significa, dichiarando apertamente quando il
+  contesto non basta invece di inventare
+- **Verifica online**: come sopra, piu' ricerca Google. Il pulsante compare solo
+  se il Worker ha `WEB_SEARCH_ENABLED=true`, perche' quella funzione richiede il
+  piano a pagamento di Gemini
 
 ## Prova in locale
 

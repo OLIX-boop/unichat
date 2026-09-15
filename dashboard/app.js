@@ -18,6 +18,7 @@ const state = {
   apiBase: localStorage.getItem('unichat.apiBase') || DEFAULT_API_BASE,
   token: localStorage.getItem('unichat.token') || '',
   categories: {},
+  features: { web_search: false },
   offset: 0,
   total: 0,
   loading: false,
@@ -55,6 +56,22 @@ async function api(path, params = {}) {
     throw new Error(`Il Worker ha risposto ${response.status}. ${detail.slice(0, 140)}`);
   }
   return response.json();
+}
+
+/** Chiamata POST alle API del Worker (solo /api/explain, per ora). */
+async function apiPost(path, body) {
+  if (!state.apiBase) throw new Error('Configura prima l’URL del Worker.');
+  const response = await fetch(new URL(path, state.apiBase), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(state.token ? { 'X-Dashboard-Token': state.token } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || `Il Worker ha risposto ${response.status}.`);
+  return data;
 }
 
 const dateFmt = new Intl.DateTimeFormat('it-IT', {
@@ -114,6 +131,13 @@ function renderItem(item) {
       </div>
       <p class="item-summary">${escapeHtml(item.summary)}</p>
       ${original}
+      <div class="item-actions">
+        <button class="ghost small" data-explain="chat" data-id="${item.id}">Approfondisci</button>
+        ${state.features.web_search
+          ? `<button class="ghost small" data-explain="web" data-id="${item.id}">Verifica online</button>`
+          : ''}
+      </div>
+      <div class="explain" id="explain-${item.id}" hidden></div>
     </article>`;
 }
 
@@ -126,6 +150,7 @@ function renderError(message) {
 async function loadStats() {
   try {
     const stats = await api('/api/stats');
+    state.features = stats.features || { web_search: false };
     const chips = [`<span class="chip">${stats.total} elementi in archivio</span>`];
     if (stats.last_item_ts) {
       chips.push(
@@ -217,6 +242,40 @@ async function loadItems({ append = false } = {}) {
   }
 }
 
+/**
+ * Chiede l'approfondimento di un elemento e lo mostra sotto di esso.
+ * `chat` usa solo i messaggi del gruppo, `web` aggiunge la ricerca online.
+ */
+async function explain(itemId, mode, button) {
+  const box = document.getElementById(`explain-${itemId}`);
+  if (!box) return;
+
+  box.hidden = false;
+  box.innerHTML = `<p class="explain-loading">${
+    mode === 'web' ? 'Cerco online e confronto coi messaggi…' : 'Rileggo la discussione…'
+  }</p>`;
+  button.disabled = true;
+
+  try {
+    const data = await apiPost('/api/explain', { item_id: Number(itemId), mode });
+    const fonti = (data.sources || []).length
+      ? `<ul class="explain-sources">${data.sources
+          .map((s) => `<li><a href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${escapeHtml(s.title)}</a></li>`)
+          .join('')}</ul>`
+      : '';
+    const etichetta = mode === 'web' ? 'Con ricerca online' : 'Dai messaggi del gruppo';
+    const quando = data.cached ? ' · già calcolato' : '';
+    box.innerHTML = `
+      <p class="explain-label">${etichetta}${quando}</p>
+      <p class="explain-text">${escapeHtml(data.text).replace(/\n/g, '<br>')}</p>
+      ${fonti}`;
+  } catch (err) {
+    box.innerHTML = `<p class="explain-error">${escapeHtml(err.message)}</p>`;
+  } finally {
+    button.disabled = false;
+  }
+}
+
 function debounce(fn, ms) {
   let timer;
   return (...args) => {
@@ -255,6 +314,12 @@ function wireEvents() {
   });
 
   els.more.addEventListener('click', () => loadItems({ append: true }));
+
+  // Delega: i pulsanti nascono e muoiono a ogni rendering della lista.
+  els.results.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-explain]');
+    if (button) explain(button.dataset.id, button.dataset.explain, button);
+  });
 }
 
 async function init() {
@@ -273,7 +338,10 @@ async function init() {
     renderError(err.message);
     return;
   }
-  await Promise.all([loadStats(), loadItems()]);
+  // Le statistiche vanno lette prima della lista: dicono quali funzioni sono
+  // disponibili, e da quelle dipendono i pulsanti disegnati su ogni elemento.
+  await loadStats();
+  await loadItems();
 }
 
 wireEvents();

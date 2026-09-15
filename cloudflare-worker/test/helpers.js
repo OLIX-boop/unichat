@@ -12,6 +12,7 @@ export function createFakeD1() {
     state: new Map(),
     items: [],
     runs: [],
+    explanations: new Map(),
   };
 
   function execute(sql, args) {
@@ -48,10 +49,27 @@ export function createFakeD1() {
         .map((it) => ({ message_id: it.message_id }));
       return { kind: 'all', value: { results } };
     }
+    if (sql.includes('FROM explanations')) {
+      const found = store.explanations.get(`${args[0]}:${args[1]}`);
+      return { kind: 'first', value: found || null };
+    }
+    if (sql.includes('INSERT INTO explanations')) {
+      store.explanations.set(`${args[0]}:${args[1]}`, {
+        text: args[2],
+        sources_json: args[3],
+        created_ts: args[4],
+      });
+      return { kind: 'run', value: { meta: { changes: 1 } } };
+    }
+    if (sql.includes('FROM items WHERE id = ?')) {
+      const found = store.items.find((it) => it.id === Number(args[0]));
+      return { kind: 'first', value: found || null };
+    }
     if (sql.includes('INSERT OR IGNORE INTO items')) {
       const exists = store.items.some((it) => it.message_id === args[0]);
       if (!exists) {
         store.items.push({
+          id: store.items.length + 1,
           message_id: args[0],
           chat_id: args[1],
           chat_name: args[2],
@@ -64,6 +82,7 @@ export function createFakeD1() {
           original_ts: args[9],
           processed_ts: args[10],
           run_id: args[11],
+          context_json: args[12],
         });
       }
       return { kind: 'run', value: { meta: { changes: exists ? 0 : 1 } } };
@@ -128,8 +147,15 @@ function jsonResponse(body, status = 200) {
  * `fetch` finto: smista su bridge (/messages, /send) e Gemini.
  * Registra tutto in `calls` per le asserzioni.
  */
-export function createFakeFetch({ messages = [], cursor = 0, verdicts = [], failOn = null }) {
-  const calls = { messages: [], gemini: [], send: [] };
+export function createFakeFetch({
+  messages = [],
+  cursor = 0,
+  verdicts = [],
+  failOn = null,
+  explainText = 'Spiegazione di prova.',
+  explainSources = [],
+}) {
+  const calls = { messages: [], gemini: [], send: [], explain: [] };
 
   async function fakeFetch(url, init = {}) {
     const target = String(url);
@@ -145,7 +171,26 @@ export function createFakeFetch({ messages = [], cursor = 0, verdicts = [], fail
       return jsonResponse({ ok: true, chat_id: 'me@c.us', message_id: 'x1' });
     }
     if (target.includes('generativelanguage')) {
-      calls.gemini.push({ body: JSON.parse(init.body) });
+      const body = JSON.parse(init.body);
+      // Le due chiamate si distinguono dal vincolo di schema: la classificazione
+      // pretende JSON strutturato, l'approfondimento risponde in prosa.
+      const isExplain = !body?.generationConfig?.responseSchema;
+      if (isExplain) {
+        calls.explain.push({ body });
+        if (failOn === 'explain') return jsonResponse({ error: 'ko' }, 500);
+        return jsonResponse({
+          candidates: [
+            {
+              finishReason: 'STOP',
+              content: { parts: [{ text: explainText }] },
+              groundingMetadata: {
+                groundingChunks: explainSources.map((s) => ({ web: s })),
+              },
+            },
+          ],
+        });
+      }
+      calls.gemini.push({ body });
       if (failOn === 'gemini') return jsonResponse({ error: 'quota' }, 400);
       return jsonResponse(geminiResponse(verdicts));
     }

@@ -60,7 +60,7 @@ stanno su Cloudflare. Il motore WhatsApp è isolato in un solo file
 |---|---|---|
 | [`bridge-locale/`](bridge-locale/README.md) | FastAPI + systemd + WAHA + config del Tunnel | Il tuo server |
 | [`cloudflare-worker/`](cloudflare-worker/README.md) | Cron Trigger, Gemini, D1, API | Cloudflare Workers |
-| [`dashboard/`](dashboard/README.md) | Pagina statica dello storico | Cloudflare Pages |
+| [`dashboard/`](dashboard/README.md) | Pagina statica dello storico, con approfondimenti | Cloudflare Pages |
 
 ## Prerequisiti
 
