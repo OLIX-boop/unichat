@@ -9,6 +9,11 @@ const DEFAULT_API_BASE = '';
 
 const PAGE_SIZE = 50;
 
+// All'apertura la pagina mostra solo gli ultimi giorni: aprendola dal telefono
+// interessa quasi sempre cio' che non si e' ancora letto. "Azzera" toglie il
+// filtro e riporta l'intero storico.
+const DEFAULT_RANGE_DAYS = 3;
+
 const state = {
   apiBase: localStorage.getItem('unichat.apiBase') || DEFAULT_API_BASE,
   token: localStorage.getItem('unichat.token') || '',
@@ -59,6 +64,14 @@ const dateFmt = new Intl.DateTimeFormat('it-IT', {
   hour: '2-digit',
   minute: '2-digit',
 });
+
+/** Data di N giorni fa nel formato accettato da <input type="date">. */
+function isoDaysAgo(days) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (c) => ({
@@ -184,8 +197,10 @@ async function loadItems({ append = false } = {}) {
     const html = data.items.map(renderItem).join('');
 
     if (!append) {
-      els.results.innerHTML =
-        html || '<p class="empty">Nessun elemento con questi filtri.</p>';
+      const vuoto = els.from.value
+        ? '<p class="empty">Nessun elemento in questo periodo.<br>Premi <strong>Azzera</strong> per vedere tutto lo storico.</p>'
+        : '<p class="empty">Nessun elemento con questi filtri.</p>';
+      els.results.innerHTML = html || vuoto;
     } else {
       els.results.insertAdjacentHTML('beforeend', html);
     }
@@ -245,6 +260,7 @@ function wireEvents() {
 async function init() {
   els.apiBase.value = state.apiBase;
   els.apiToken.value = state.token;
+  if (!els.from.value) els.from.value = isoDaysAgo(DEFAULT_RANGE_DAYS);
 
   if (!state.apiBase) {
     els.settings.hidden = false;

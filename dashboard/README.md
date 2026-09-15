@@ -14,7 +14,8 @@ Worker. Tre file, nessun framework, nessun build step.
 - Filtro per gruppo (compare da solo quando i gruppi monitorati sono piu' di uno)
 - Filtro per categoria (l'elenco arriva da `/api/categories`, quindi segue la
   tassonomia del Worker senza doppioni da mantenere qui)
-- Intervallo di date
+- Intervallo di date: all'apertura mostra gli ultimi 3 giorni (si cambia in `DEFAULT_RANGE_DAYS`
+  dentro `app.js`); il pulsante **Azzera** toglie il filtro e mostra tutto lo storico
 - Ricerca testuale su sintesi e mittente
 - Ordinamento crescente/decrescente per data
 - Paginazione "Carica altri" a blocchi di 50
