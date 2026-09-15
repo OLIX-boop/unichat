@@ -1,0 +1,25 @@
+# Un giro della modalita' push: legge i messaggi nuovi, li manda al Worker,
+# inoltra il digest che torna indietro. Lo lancia il timer, non va abilitato
+# da solo.
+#
+#   sudo cp deploy/unichat-push.* /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now unichat-push.timer
+
+[Unit]
+Description=UniChat push (bridge -> Worker -> digest WhatsApp)
+After=network-online.target unichat-bridge.service
+Requires=unichat-bridge.service
+
+[Service]
+Type=oneshot
+User=unichat
+Group=unichat
+WorkingDirectory=/opt/unichat/bridge-locale
+EnvironmentFile=/opt/unichat/bridge-locale/.env
+ExecStart=/opt/unichat/bridge-locale/.venv/bin/python -m app.push
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true

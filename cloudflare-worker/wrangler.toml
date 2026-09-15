@@ -1,0 +1,45 @@
+name = "unichat-worker"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# Cron Trigger: serve SOLO in modalita' pull, cioe' quando il Worker raggiunge
+# il bridge attraverso un Cloudflare Tunnel (e quindi serve un dominio).
+#
+# In modalita' push la sveglia sta sul server (timer systemd) e il cron va
+# lasciato disattivato: senza un BRIDGE_BASE_URL raggiungibile produrrebbe solo
+# run in errore ogni ora.
+#
+# Per attivarlo: togli il commento e scegli l'intervallo (sintassi cron, UTC).
+# Esempi:  "*/30 * * * *" ogni 30 minuti,  "0 8,14,20 * * *" tre volte al giorno.
+# [triggers]
+# crons = ["0 * * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "unichat"
+database_id = "f24e97b3-87a4-4b0a-a9e2-9ca80251a5e2"
+migrations_dir = "migrations"
+
+[vars]
+# Hostname pubblico del Cloudflare Tunnel che punta al bridge locale.
+BRIDGE_BASE_URL = "https://unichat-bridge.iltuodominio.tld"
+# Modello Gemini (famiglia Flash, tier gratuito).
+GEMINI_MODEL = "gemini-3.6-flash"
+# Messaggi per singola chiamata a Gemini.
+GEMINI_BATCH_SIZE = "40"
+# Tetto di messaggi elaborati in un run, per non sforare i limiti gratuiti.
+MAX_MESSAGES_PER_RUN = "300"
+# "false" per non salvare il testo originale in D1 (resta solo la sintesi).
+STORE_ORIGINAL_TEXT = "true"
+# Quanto storico leggere al primissimo run, quando il cursore non esiste ancora.
+FIRST_RUN_LOOKBACK_HOURS = "24"
+# Link alla dashboard messo in fondo al digest (facoltativo).
+DASHBOARD_URL = "https://unichat.andreaolimpio.workers.dev"
+# Origine ammessa dalla CORS per la dashboard ("*" oppure https://unichat.pages.dev).
+ALLOWED_ORIGIN = "https://unichat.andreaolimpio.workers.dev"
+
+# I segreti NON stanno qui: si impostano con `wrangler secret put` (vedi README).
+#   GEMINI_API_KEY    chiave Gemini
+#   BRIDGE_API_KEY    chiave condivisa col bridge locale
+#   ADMIN_TOKEN       (facoltativo) abilita il trigger manuale GET /run
+#   DASHBOARD_TOKEN   (facoltativo) protegge le API di lettura

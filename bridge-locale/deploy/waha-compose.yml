@@ -1,0 +1,32 @@
+# Motore WhatsApp: WAHA (WhatsApp HTTP API), avviato con Docker Compose.
+# Percorso consigliato: /opt/waha/docker-compose.yml
+#
+# Le variabili arrivano dal file .env che sta accanto a questo (vedi README).
+# Avvio:   docker compose up -d
+# Log:     docker compose logs -f
+# Stato:   docker compose ps
+
+services:
+  waha:
+    image: devlikeapro/waha
+    container_name: waha
+    restart: always
+    ports:
+      # Durante l'accoppiamento serve raggiungere la dashboard dal browser, quindi
+      # la porta e' esposta sulla LAN. Finita la scansione del QR puoi restringere
+      # a "127.0.0.1:3000:3000": al bridge basta localhost.
+      - "3000:3000"
+    environment:
+      # Chiave richiesta nell'header X-Api-Key: la stessa che finisce nel .env del bridge
+      - WAHA_API_KEY=${WAHA_API_KEY}
+      # NOWEB parla il protocollo di WhatsApp direttamente: niente Chromium,
+      # poche centinaia di MB di RAM in meno e nessun browser da tenere vivo.
+      - WHATSAPP_DEFAULT_ENGINE=NOWEB
+      # Riavvia da sola le sessioni dopo un riavvio del container o della macchina
+      - WHATSAPP_RESTART_ALL_SESSIONS=True
+      - WAHA_DASHBOARD_USERNAME=${WAHA_DASHBOARD_USERNAME}
+      - WAHA_DASHBOARD_PASSWORD=${WAHA_DASHBOARD_PASSWORD}
+      - TZ=Europe/Rome
+    volumes:
+      # Qui vive la sessione WhatsApp: se cancelli questa cartella devi rifare il QR.
+      - ./waha-sessions:/app/.sessions

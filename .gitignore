@@ -1,0 +1,40 @@
+# ---- Segreti e configurazione locale ----
+.env
+.env.*
+!.env.example
+*.secret
+.dev.vars
+!.dev.vars.example
+
+# ---- Credenziali Cloudflare Tunnel ----
+*.pem
+cert.pem
+*.json.credentials
+.cloudflared/
+cloudflared/*.json
+
+# ---- Database locali del bridge ----
+*.sqlite3
+*.sqlite
+*.db
+bridge-locale/data/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# ---- Node / Wrangler ----
+node_modules/
+.wrangler/
+dist/
+npm-debug.log*
+
+# ---- Editor / OS ----
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

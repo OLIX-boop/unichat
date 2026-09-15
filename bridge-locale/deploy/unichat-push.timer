@@ -1,0 +1,22 @@
+# Sveglia oraria della modalita' push. E' l'equivalente del Cron Trigger di
+# Cloudflare quando non si dispone di un dominio per il Tunnel.
+#
+# Per cambiare ritmo modifica OnUnitActiveSec (es. 30min, 3h) e poi:
+#   sudo systemctl daemon-reload && sudo systemctl restart unichat-push.timer
+# Non scendere sotto i pochi minuti: il gruppo va letto come lo leggerebbe una persona.
+
+[Unit]
+Description=Esegue UniChat ogni ora
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=1h
+# Sfasa l'orario di qualche minuto: evita di bussare a WhatsApp sempre
+# allo scoccare esatto dell'ora, che e' un pattern poco umano.
+RandomizedDelaySec=5min
+# Recupera il giro perso se la macchina era spenta.
+Persistent=true
+Unit=unichat-push.service
+
+[Install]
+WantedBy=timers.target

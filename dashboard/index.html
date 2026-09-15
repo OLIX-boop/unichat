@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>UniChat · storico digest</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>UniChat</h1>
+        <p class="subtitle">Storico dei messaggi utili estratti dal gruppo</p>
+      </div>
+      <button id="toggle-settings" class="ghost" type="button">Impostazioni</button>
+    </header>
+
+    <section id="settings" class="settings" hidden>
+      <label>
+        URL del Worker
+        <input id="api-base" type="url" placeholder="https://unichat-worker.tuo-account.workers.dev" />
+      </label>
+      <label>
+        Token dashboard <span class="hint">(solo se hai impostato DASHBOARD_TOKEN)</span>
+        <input id="api-token" type="password" placeholder="facoltativo" />
+      </label>
+      <button id="save-settings" type="button">Salva e ricarica</button>
+      <p class="hint">I valori restano nel browser (localStorage), non vengono inviati altrove.</p>
+    </section>
+
+    <section id="stats" class="stats" aria-live="polite"></section>
+
+    <section class="filters">
+      <input id="search" type="search" placeholder="Cerca nel testo delle sintesi…" />
+      <select id="category">
+        <option value="">Tutte le categorie</option>
+      </select>
+      <select id="chat" hidden>
+        <option value="">Tutti i gruppi</option>
+      </select>
+      <label class="date">Da <input id="from" type="date" /></label>
+      <label class="date">A <input id="to" type="date" /></label>
+      <select id="sort">
+        <option value="desc">Più recenti prima</option>
+        <option value="asc">Più vecchi prima</option>
+      </select>
+      <button id="reset" class="ghost" type="button">Azzera</button>
+    </section>
+
+    <main id="results" aria-live="polite">
+      <p class="empty">Caricamento…</p>
+    </main>
+
+    <footer class="foot">
+      <span id="count"></span>
+      <button id="more" class="ghost" type="button" hidden>Carica altri</button>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Il nome determina l'indirizzo pubblico (unichat.<account>.workers.dev):
+  // va tenuto uguale a quello del primo deploy, altrimenti ne nasce un altro.
+  "name": "unichat",
+  "compatibility_date": "2026-09-15",
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "."
+  }
+}

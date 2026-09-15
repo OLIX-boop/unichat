@@ -1,0 +1,21 @@
+{
+  "name": "unichat-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Cron Trigger che filtra un gruppo WhatsApp universitario con Gemini e ne salva il digest su D1",
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\"",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "db:local": "wrangler d1 migrations apply unichat --local",
+    "db:remote": "wrangler d1 migrations apply unichat --remote"
+  },
+  "devDependencies": {
+    "wrangler": "^3.99.0"
+  },
+  "engines": {
+    "node": ">=21"
+  }
+}

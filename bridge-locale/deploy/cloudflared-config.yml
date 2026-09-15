@@ -1,0 +1,15 @@
+# Config di cloudflared. Percorso atteso: /etc/cloudflared/config.yml
+# Sostituisci <TUNNEL_UUID> e l'hostname con i tuoi valori reali
+# (vedi deploy/README-tunnel.md per come ottenerli).
+
+tunnel: <TUNNEL_UUID>
+credentials-file: /etc/cloudflared/<TUNNEL_UUID>.json
+
+ingress:
+  - hostname: unichat-bridge.iltuodominio.tld
+    service: http://127.0.0.1:8088
+    originRequest:
+      connectTimeout: 30s
+      noTLSVerify: false
+  # Regola finale obbligatoria: tutto il resto viene rifiutato.
+  - service: http_status:404

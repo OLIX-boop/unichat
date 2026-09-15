@@ -1,0 +1,7 @@
+# Segreti per `wrangler dev` in locale. Copia in .dev.vars (escluso da git).
+# In produzione questi valori si impostano con `wrangler secret put <NOME>`.
+
+GEMINI_API_KEY=la-tua-chiave-gemini
+BRIDGE_API_KEY=la-stessa-BRIDGE_API_KEY-del-file-.env-del-bridge
+ADMIN_TOKEN=token-per-il-trigger-manuale-GET-/run
+DASHBOARD_TOKEN=

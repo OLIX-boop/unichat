@@ -1,0 +1,13 @@
+# Pin di versione minima, non esatta: cosi' pip sceglie una build compatibile
+# con l'interprete in uso (testato da Python 3.11 a 3.14).
+fastapi>=0.115.6
+uvicorn>=0.34.0
+httpx>=0.28.1
+pydantic-settings>=2.7.1
+
+# Solo per i test
+pytest>=8.3.4
+
+# Facoltativo, sul server: uvicorn[standard] aggiunge httptools/uvloop.
+# Su Windows o su interpreti molto recenti puo' non avere wheel pronte,
+# per questo non e' fra le dipendenze obbligatorie.

@@ -1,0 +1,97 @@
+/**
+ * API HTTP di sola lettura che alimenta la dashboard su Cloudflare Pages.
+ * Nessuna scrittura: l'unico percorso che modifica D1 e' il Cron Trigger.
+ */
+
+import { CATEGORIES, relevantCategories } from './config/categories.js';
+import { getStats, listRuns, queryItems } from './db.js';
+
+function corsHeaders(env) {
+  return {
+    'Access-Control-Allow-Origin': env.ALLOWED_ORIGIN || '*',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Dashboard-Token',
+  };
+}
+
+function json(data, env, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store',
+      ...corsHeaders(env),
+    },
+  });
+}
+
+/**
+ * Se il secret DASHBOARD_TOKEN e' impostato, ogni lettura deve presentarlo
+ * nell'header X-Dashboard-Token (o in `?token=`). Se non e' impostato l'API e'
+ * pubblica in lettura: comodo per provare, da valutare se il gruppo tratta
+ * informazioni che preferisci non lasciare in chiaro su internet.
+ */
+function authorized(request, env) {
+  const expected = env.DASHBOARD_TOKEN;
+  if (!expected) return true;
+  const url = new URL(request.url);
+  const provided = request.headers.get('X-Dashboard-Token') || url.searchParams.get('token') || '';
+  return provided === expected;
+}
+
+export async function handleApiRequest(request, env) {
+  const url = new URL(request.url);
+  const { pathname, searchParams } = url;
+
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders(env) });
+  }
+  if (request.method !== 'GET') {
+    return json({ error: 'Metodo non consentito' }, env, 405);
+  }
+  if (pathname === '/health') {
+    return json({ status: 'ok', service: 'unichat-worker' }, env);
+  }
+  if (!authorized(request, env)) {
+    return json({ error: 'Token dashboard mancante o non valido' }, env, 401);
+  }
+
+  if (pathname === '/api/categories') {
+    return json(
+      {
+        categories: relevantCategories().map(({ slug, label, emoji, order }) => ({
+          slug,
+          label,
+          emoji,
+          order,
+        })),
+        all: CATEGORIES.map((c) => c.slug),
+      },
+      env,
+    );
+  }
+
+  if (pathname === '/api/items') {
+    const result = await queryItems(env.DB, {
+      category: searchParams.get('category') || undefined,
+      chat: searchParams.get('chat') || undefined,
+      from: searchParams.get('from') || undefined,
+      to: searchParams.get('to') || undefined,
+      q: searchParams.get('q') || undefined,
+      order: searchParams.get('order') || 'desc',
+      limit: searchParams.get('limit') || 100,
+      offset: searchParams.get('offset') || 0,
+    });
+    return json(result, env);
+  }
+
+  if (pathname === '/api/stats') {
+    return json(await getStats(env.DB), env);
+  }
+
+  if (pathname === '/api/runs') {
+    return json({ runs: await listRuns(env.DB, searchParams.get('limit') || 20) }, env);
+  }
+
+  return json({ error: 'Endpoint sconosciuto' }, env, 404);
+}
