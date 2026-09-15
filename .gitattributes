@@ -1,0 +1,16 @@
+# Il progetto si sviluppa su Windows ma gira su Linux (container LXC, Cloudflare
+# Workers): senza questa normalizzazione git converte i fine riga in CRLF nella
+# copia locale, e uno script shell con CRLF sul server non parte proprio.
+* text=auto eol=lf
+
+# File che devono restare con fine riga Unix a prescindere: li esegue systemd o
+# la shell del container.
+*.sh      text eol=lf
+*.service text eol=lf
+*.timer   text eol=lf
+*.yml     text eol=lf
+
+# File binari: git non deve toccarli.
+*.png binary
+*.jpg binary
+*.gz  binary
