@@ -226,7 +226,7 @@ delle sezioni del digest e filtri della dashboard derivano da li'.
 npm test
 ```
 
-50 test: logica pura (composizione del digest, validazione dei verdetti, scarto
+51 test: logica pura (composizione del digest, validazione dei verdetti, scarto
 del rumore) e flusso completo in entrambe le modalita', con bridge, Gemini e D1
 finti. Nessuna chiamata di rete, nessun consumo di quota.
 

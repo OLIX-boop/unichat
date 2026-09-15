@@ -163,6 +163,17 @@ describe('POST /api/explain', () => {
     assert.equal(secondo.calls.explain.length, 0);
   });
 
+  it('espone has_context, cosi la dashboard nasconde il pulsante inutile', async () => {
+    const db = createFakeD1();
+    seedItem(db, { id: 1 });
+    seedItem(db, { id: 2, context: null });
+
+    const conContesto = db.store.items.find((i) => i.id === 1);
+    const senzaContesto = db.store.items.find((i) => i.id === 2);
+    assert.ok(conContesto.context_json);
+    assert.equal(senzaContesto.context_json, null);
+  });
+
   it('senza contesto salvato lo dice invece di far parlare il modello a vuoto', async () => {
     const db = createFakeD1();
     seedItem(db, { context: null });

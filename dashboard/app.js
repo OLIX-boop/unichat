@@ -132,7 +132,9 @@ function renderItem(item) {
       <p class="item-summary">${escapeHtml(item.summary)}</p>
       ${original}
       <div class="item-actions">
-        <button class="ghost small" data-explain="chat" data-id="${item.id}">Approfondisci</button>
+        ${item.has_context
+          ? `<button class="ghost small" data-explain="chat" data-id="${item.id}">Approfondisci</button>`
+          : ''}
         ${state.features.web_search
           ? `<button class="ghost small" data-explain="web" data-id="${item.id}">Verifica online</button>`
           : ''}

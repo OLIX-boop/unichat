@@ -146,7 +146,8 @@ export async function queryItems(db, filters = {}) {
   const rows = await db
     .prepare(
       `SELECT id, message_id, chat_id, chat_name, category, summary, urgency,
-              sender_name, original_text, original_ts, processed_ts
+              sender_name, original_text, original_ts, processed_ts,
+              context_json IS NOT NULL AS has_context
          FROM items ${clause}
         ORDER BY original_ts ${direction}
         LIMIT ? OFFSET ?`,
